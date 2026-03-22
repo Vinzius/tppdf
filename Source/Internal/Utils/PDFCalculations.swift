@@ -406,6 +406,25 @@ enum PDFCalculations {
         return CGRect(x: origin.x, y: origin.y, width: imageWidth, height: imageHeight)
     }
 
+    /// Calculates the frame for a table cell containing a ``PDFImage``.
+    ///
+    /// Uses ``PDFImage/size`` (a stored ``CGSize``) — no pixel decoding occurs.
+    static func calculateCellFrame(generator _: PDFGenerator, origin: CGPoint, width: CGFloat, pdfImage: PDFImage) -> CGRect {
+        let imageSize = pdfImage.size
+        var imageHeight = 0.0
+        var imageWidth = 0.0
+
+        if imageSize.width > width {
+            imageHeight = imageSize.height / imageSize.width * width
+            imageWidth = width
+        } else {
+            imageHeight = imageSize.height
+            imageWidth = imageSize.width
+        }
+
+        return CGRect(x: origin.x, y: origin.y, width: imageWidth, height: imageHeight)
+    }
+
     static func calculateTextFrameAndDrawnSizeInOnePage(
         generator: PDFGenerator,
         container: PDFContainer,

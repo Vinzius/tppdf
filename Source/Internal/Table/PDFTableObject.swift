@@ -206,6 +206,13 @@ class PDFTableObject: PDFRenderObject {
                                     width: contentWidth,
                                     image: image)
         }
+        if let pdfImage = content.pdfImageValue {
+            return PDFCalculations
+                .calculateCellFrame(generator: generator,
+                                    origin: contentOrigin,
+                                    width: contentWidth,
+                                    pdfImage: pdfImage)
+        }
         return CGRect.zero
     }
 
@@ -531,6 +538,8 @@ class PDFTableObject: PDFRenderObject {
 
         if let contentImage = content.imageValue {
             contentObject = PDFImageObject(image: PDFImage(image: contentImage, options: [.none]))
+        } else if let pdfImage = content.pdfImageValue {
+            contentObject = PDFImageObject(image: pdfImage)
         } else {
             var attributedString: NSAttributedString?
             if let contentText = content.stringValue {

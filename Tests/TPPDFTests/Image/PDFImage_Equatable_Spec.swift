@@ -97,6 +97,29 @@ class PDFImage_Equatable_Spec: QuickSpec {
 
                 expect(pdfImage) != otherPdfImage
             }
+
+            context("fileURL sources") {
+                let url1 = URL(fileURLWithPath: "/tmp/image1.jpg")
+                let url2 = URL(fileURLWithPath: "/tmp/image2.jpg")
+
+                it("fileURL PDFImages with same URL are equal") {
+                    let a = PDFImage(source: .fileURL(url1, size: size), caption: caption, size: size, sizeFit: fit, quality: quality)
+                    let b = PDFImage(source: .fileURL(url1, size: size), caption: caption, size: size, sizeFit: fit, quality: quality)
+                    expect(a) == b
+                }
+
+                it("fileURL PDFImages with different URLs are not equal") {
+                    let a = PDFImage(source: .fileURL(url1, size: size), caption: caption, size: size, sizeFit: fit, quality: quality)
+                    let b = PDFImage(source: .fileURL(url2, size: size), caption: caption, size: size, sizeFit: fit, quality: quality)
+                    expect(a) != b
+                }
+
+                it(".image and .fileURL PDFImages are not equal") {
+                    let a = PDFImage(source: .image(image), caption: caption, size: size, sizeFit: fit, quality: quality)
+                    let b = PDFImage(source: .fileURL(url1, size: size), caption: caption, size: size, sizeFit: fit, quality: quality)
+                    expect(a) != b
+                }
+            }
         }
     }
     // swiftlint:enable closure_body_length function_body_length

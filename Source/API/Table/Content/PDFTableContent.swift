@@ -65,6 +65,9 @@ public class PDFTableContent: CustomStringConvertible, Hashable {
         } else if content is Int || content is Double || content is Float {
             type = .string
             self.content = String(describing: content!)
+        } else if content is PDFImage {
+            type = .pdfImage
+            self.content = content
         } else {
             throw PDFError.tableContentInvalid(value: content)
         }
@@ -100,6 +103,16 @@ public class PDFTableContent: CustomStringConvertible, Hashable {
         type == .image ? content as? Image : nil
     }
 
+    /// Convenience accessor for testing the ``PDFTableContent/type``
+    var isPDFImage: Bool {
+        type == .pdfImage
+    }
+
+    /// Convenience accessor for casting the ``PDFTableContent/content`` based on the ``PDFTableContent/type``
+    var pdfImageValue: PDFImage? {
+        type == .pdfImage ? content as? PDFImage : nil
+    }
+
     // MARK: - Equatable
 
     /// nodoc
@@ -119,6 +132,10 @@ public class PDFTableContent: CustomStringConvertible, Hashable {
                   let rhsImage = rhs.content as? Image,
                   lhsImage != rhsImage {
             return false
+        } else if let lhsPDFImage = lhs.content as? PDFImage,
+                  let rhsPDFImage = rhs.content as? PDFImage,
+                  lhsPDFImage != rhsPDFImage {
+            return false
         } else if (lhs.content == nil && rhs.content != nil) || (lhs.content != nil && rhs.content == nil) {
             return false
         }
@@ -137,6 +154,8 @@ public class PDFTableContent: CustomStringConvertible, Hashable {
             hasher.combine(attributedStringValue)
         case .image:
             hasher.combine(imageValue)
+        case .pdfImage:
+            hasher.combine(pdfImageValue)
         case .none:
             hasher.combine("none")
         }

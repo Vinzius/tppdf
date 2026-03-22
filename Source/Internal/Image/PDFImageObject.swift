@@ -114,22 +114,33 @@ class PDFImageObject: PDFRenderObject {
             }
         }
 
-        let modifiedImage = PDFGraphics.resizeAndCompressImage(image: image.image,
-                                                               frame: frame,
-                                                               shouldResize: image.options.contains(.resize),
-                                                               shouldCompress: image.options.contains(.compress),
-                                                               quality: image.quality,
-                                                               roundCorners: roundedCorners,
-                                                               cornerRadius: image.cornerRadius)
+        // Decode + process + draw inside a single autoreleasepool so that the
+        // decoded Image, any resized copy, and any JPEG-roundtripped copy are
+        // freed immediately after drawing rather than surviving until the end
+        // of the entire PDF generation run.
+        try autoreleasepool {
+            guard let resolvedImage = image.resolveImage() else {
+                // File could not be loaded; skip drawing silently.
+                return
+            }
 
-        let cgImage: CGImage?
-        #if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
-            cgImage = modifiedImage.cgImage
-        #else
-            cgImage = modifiedImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        #endif
-        if let cgImage = cgImage {
-            context.draw(image: cgImage, in: frame, flipped: true)
+            let modifiedImage = PDFGraphics.resizeAndCompressImage(image: resolvedImage,
+                                                                   frame: frame,
+                                                                   shouldResize: image.options.contains(.resize),
+                                                                   shouldCompress: image.options.contains(.compress),
+                                                                   quality: image.quality,
+                                                                   roundCorners: roundedCorners,
+                                                                   cornerRadius: image.cornerRadius)
+
+            let cgImage: CGImage?
+            #if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
+                cgImage = modifiedImage.cgImage
+            #else
+                cgImage = modifiedImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            #endif
+            if let cgImage = cgImage {
+                context.draw(image: cgImage, in: frame, flipped: true)
+            }
         }
 
         applyAttributes(in: context)

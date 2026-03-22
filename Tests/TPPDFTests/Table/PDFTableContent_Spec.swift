@@ -32,6 +32,10 @@ class PDFTableContent_Spec: QuickSpec {
                 it("has a value none") {
                     expect(PDFTableContent.ContentType.image).toNot(beNil())
                 }
+
+                it("has a value pdfImage") {
+                    expect(PDFTableContent.ContentType.pdfImage).toNot(beNil())
+                }
             }
 
             context("variables") {
@@ -150,6 +154,16 @@ class PDFTableContent_Spec: QuickSpec {
                         try content.setContent(content: value)
                     }.to(throwError())
                 }
+
+                it("can set to PDFImage") {
+                    let value = PDFImage(image: Image())
+
+                    expect {
+                        try content.setContent(content: value)
+                    }.toNot(throwError())
+                    expect(content.type).toEventually(equal(PDFTableContent.ContentType.pdfImage))
+                    expect(content.pdfImageValue).toEventually(be(value))
+                }
             }
 
             context("computed variables") {
@@ -245,6 +259,27 @@ class PDFTableContent_Spec: QuickSpec {
                     content.type = .attributedString
                     expect(content.imageValue).to(beNil())
                 }
+
+                it("is a pdfImage") {
+                    content.type = .pdfImage
+                    expect(content.isPDFImage).to(beTrue())
+
+                    content.type = .image
+                    expect(content.isPDFImage).to(beFalse())
+
+                    content.type = .none
+                    expect(content.isPDFImage).to(beFalse())
+                }
+
+                it("can get pdfImage value") {
+                    let value = PDFImage(image: Image())
+                    content.content = value
+                    content.type = .pdfImage
+                    expect(content.pdfImageValue).to(be(value))
+
+                    content.type = .image
+                    expect(content.pdfImageValue).to(beNil())
+                }
             }
 
             context("extensions") {
@@ -272,6 +307,15 @@ class PDFTableContent_Spec: QuickSpec {
                         let content = image.asTableContent
                         expect(content.content as? Image).to(be(image))
                         expect(content.type) == PDFTableContent.ContentType.image
+                    }
+                }
+
+                context("PDFImage") {
+                    it("can be converted to content") {
+                        let pdfImage = PDFImage(image: Image())
+                        let content = pdfImage.asTableContent
+                        expect(content.content as? PDFImage).to(be(pdfImage))
+                        expect(content.type) == PDFTableContent.ContentType.pdfImage
                     }
                 }
             }

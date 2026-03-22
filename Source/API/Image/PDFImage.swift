@@ -18,10 +18,29 @@
  * Contains all information about an image, including the caption.
  */
 public class PDFImage: PDFDocumentObject {
+
+    // MARK: - Stored Properties
+
+    /// The underlying source of the image data.
+    internal var source: PDFImageSource
+
+    // MARK: - Computed Properties (Backwards Compatibility)
+
     /**
-     * The actual image
+     * The actual image.
+     *
+     * For `.image` sources this returns the stored value directly.
+     * For `.fileURL` sources this decodes the file on every access.
+     * Setting this property updates the backing source to `.image(newValue)`.
      */
-    public var image: Image
+    public var image: Image {
+        get {
+            source.resolveImage() ?? Image()
+        }
+        set {
+            source = .image(newValue)
+        }
+    }
 
     /**
      * An instance of a `PDFText` subclass.
@@ -48,6 +67,41 @@ public class PDFImage: PDFDocumentObject {
     /// Optional corner radius, is used if the `options` are set.
     public var cornerRadius: CGFloat?
 
+    // MARK: - Initialisers
+
+    /**
+     * Creates a new `PDFImage` backed by the given `PDFImageSource`.
+     *
+     * This is the preferred initializer for lazy / file-based images.
+     *
+     * - Parameters:
+     *   - source:       Source of the image data; see ``PDFImageSource``.
+     *   - caption:      Optional caption, defaults to `nil`.
+     *   - size:         Layout size in points.  When `.zero`, the size is
+     *                   resolved from `source` without fully decoding the image.
+     *   - sizeFit:      How the image scales when space is constrained.
+     *   - quality:      JPEG compression quality (0.0 – 1.0).
+     *   - options:      Image processing flags.
+     *   - cornerRadius: Optional corner radius.
+     */
+    public init(
+        source: PDFImageSource,
+        caption: PDFText? = nil,
+        size: CGSize = .zero,
+        sizeFit: PDFImageSizeFit = .widthHeight,
+        quality: CGFloat = 0.85,
+        options: PDFImageOptions = [.resize, .compress],
+        cornerRadius: CGFloat? = nil
+    ) {
+        self.source = source
+        self.caption = caption
+        self.size = (size == .zero) ? source.resolveSize() : size
+        self.sizeFit = sizeFit
+        self.quality = quality
+        self.options = options
+        self.cornerRadius = cornerRadius
+    }
+
     /**
      * Initializer to create a PDF image element.
      *
@@ -60,7 +114,7 @@ public class PDFImage: PDFDocumentObject {
      *      - options: Defines if the image will be modified before rendering
      *      - cornerRadius: Defines the radius of the corners
      */
-    public init(
+    public convenience init(
         image: Image,
         caption: PDFText? = nil,
         size: CGSize = .zero,
@@ -69,19 +123,34 @@ public class PDFImage: PDFDocumentObject {
         options: PDFImageOptions = [.resize, .compress],
         cornerRadius: CGFloat? = nil
     ) {
-        self.image = image
-        self.caption = caption
-        self.size = (size == .zero) ? image.size : size
-        self.sizeFit = sizeFit
-        self.quality = quality
-        self.options = options
-        self.cornerRadius = cornerRadius
+        self.init(
+            source: .image(image),
+            caption: caption,
+            size: size,
+            sizeFit: sizeFit,
+            quality: quality,
+            options: options,
+            cornerRadius: cornerRadius
+        )
     }
+
+    // MARK: - Resolution
+
+    /// Decodes and returns the underlying ``Image``.
+    ///
+    /// For `.image` sources this is an O(1) operation.
+    /// For `.fileURL` sources this performs a file I/O decode.
+    /// Returns `nil` only for `.fileURL` sources when the file cannot be read.
+    public func resolveImage() -> Image? {
+        source.resolveImage()
+    }
+
+    // MARK: - Copy
 
     /// Creates a new `PDFImage` with the same properties
     public var copy: PDFImage {
         PDFImage(
-            image: image,
+            source: source,
             caption: caption?.copy,
             size: size,
             sizeFit: sizeFit,
@@ -107,7 +176,7 @@ public class PDFImage: PDFDocumentObject {
         guard tag == otherImage.tag else {
             return false
         }
-        guard image == otherImage.image else {
+        guard sourcesAreEqual(source, otherImage.source) else {
             return false
         }
         guard caption == otherImage.caption else {
@@ -125,16 +194,33 @@ public class PDFImage: PDFDocumentObject {
         return true
     }
 
+    private func sourcesAreEqual(_ lhs: PDFImageSource, _ rhs: PDFImageSource) -> Bool {
+        switch (lhs, rhs) {
+        case (.image(let a), .image(let b)):
+            return a == b
+        case (.fileURL(let u1, let s1), .fileURL(let u2, let s2)):
+            return u1 == u2 && s1 == s2
+        default:
+            return false
+        }
+    }
+
     // MARK: - Hashable
 
     /// nodoc
     override public func hash(into hasher: inout Hasher) {
-        hasher.combine(image)
+        switch source {
+        case .image(let img):
+            hasher.combine(img)
+        case .fileURL(let url, let sizeHint):
+            hasher.combine(url)
+            hasher.combine(sizeHint?.width)
+            hasher.combine(sizeHint?.height)
+        }
         hasher.combine(caption)
         hasher.combine(size.width)
         hasher.combine(size.height)
         hasher.combine(sizeFit)
-        hasher.combine(quality)
         hasher.combine(quality)
         hasher.combine(options)
         hasher.combine(cornerRadius)

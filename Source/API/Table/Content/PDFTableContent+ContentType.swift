@@ -20,5 +20,8 @@ public extension PDFTableContent {
 
         /// Content is an image
         case image
+
+        /// Content is a ``PDFImage``, enabling lazy loading and richer options
+        case pdfImage
     }
 }

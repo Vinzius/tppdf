@@ -76,6 +76,64 @@ class PDFImageSource_Spec: QuickSpec {
                     expect(source.resolveImage()).to(beNil())
                 }
             }
+
+            context(".block case") {
+                it("resolveImage() calls the resolver and returns the result") {
+                    let source = PDFImageSource.block(id: UUID(), size: nil, resolver: { testImage })
+                    expect(source.resolveImage()) == testImage
+                }
+
+                it("resolveImage() returns nil when the resolver returns nil") {
+                    let source = PDFImageSource.block(id: UUID(), size: nil, resolver: { nil })
+                    expect(source.resolveImage()).to(beNil())
+                }
+
+                it("resolveSize() returns the explicit size hint without calling the resolver") {
+                    let hint = CGSize(width: 42, height: 24)
+                    var resolverCalled = false
+                    let source = PDFImageSource.block(id: UUID(), size: hint) {
+                        resolverCalled = true
+                        return testImage
+                    }
+                    expect(source.resolveSize()) == hint
+                    expect(resolverCalled) == false
+                }
+
+                it("resolveSize() calls the resolver when no size hint is provided") {
+                    let source = PDFImageSource.block(id: UUID(), size: nil, resolver: { testImage })
+                    expect(source.resolveSize()) == testImage.size
+                }
+
+                it("resolveSize() returns .zero when no hint and resolver returns nil") {
+                    let source = PDFImageSource.block(id: UUID(), size: nil, resolver: { nil })
+                    expect(source.resolveSize()) == CGSize.zero
+                }
+
+                it("two sources with the same UUID are equal by identity") {
+                    let id = UUID()
+                    let img1 = PDFImage(source: .block(id: id, size: nil, resolver: { testImage }))
+                    let img2 = PDFImage(source: .block(id: id, size: nil, resolver: { testImage }))
+                    expect(img1) == img2
+                }
+
+                it("two sources with different UUIDs are not equal") {
+                    let img1 = PDFImage(source: .block(id: UUID(), size: nil, resolver: { testImage }))
+                    let img2 = PDFImage(source: .block(id: UUID(), size: nil, resolver: { testImage }))
+                    expect(img1) != img2
+                }
+
+                it("PDFImage convenience init generates a unique UUID per call") {
+                    let img1 = PDFImage(block: { testImage })
+                    let img2 = PDFImage(block: { testImage })
+                    expect(img1) != img2
+                }
+
+                it("PDFImage copy preserves the same UUID") {
+                    let original = PDFImage(block: { testImage })
+                    let copied = original.copy
+                    expect(original) == copied
+                }
+            }
         }
     }
 }

@@ -134,13 +134,60 @@ public class PDFImage: PDFDocumentObject {
         )
     }
 
+    /**
+     * Creates a `PDFImage` whose pixel data is supplied by a closure.
+     *
+     * A new ``UUID`` is generated and stored inside the ``PDFImageSource``
+     * as the stable identity token for ``Equatable`` and ``Hashable``.
+     * Two images created from separate calls to this initializer are therefore
+     * never considered equal, even when the resolver closures produce identical
+     * pixel data.
+     *
+     * If `size` is `.zero` the resolver is invoked **once at init time** to
+     * obtain the image dimensions.  Pass an explicit `size` to defer all calls
+     * to the resolver until draw time.
+     *
+     * - Parameters:
+     *   - block:        Closure that returns the image on demand, or `nil` on failure.
+     *                   May be called more than once (size probe + draw), so it
+     *                   should be idempotent and side-effect-free.
+     *   - size:         Layout size in points.  `.zero` triggers a size probe via
+     *                   the resolver at init time.
+     *   - caption:      Optional caption.
+     *   - sizeFit:      Scaling behaviour when space is constrained.
+     *   - quality:      JPEG compression quality (0.0 – 1.0).
+     *   - options:      Image processing flags.
+     *   - cornerRadius: Optional corner radius.
+     */
+    public convenience init(
+        block resolver: @escaping () -> Image?,
+        size: CGSize = .zero,
+        caption: PDFText? = nil,
+        sizeFit: PDFImageSizeFit = .widthHeight,
+        quality: CGFloat = 0.85,
+        options: PDFImageOptions = [.resize, .compress],
+        cornerRadius: CGFloat? = nil
+    ) {
+        let sizeHint: CGSize? = size == .zero ? nil : size
+        self.init(
+            source: .block(id: UUID(), size: sizeHint, resolver: resolver),
+            caption: caption,
+            size: size,
+            sizeFit: sizeFit,
+            quality: quality,
+            options: options,
+            cornerRadius: cornerRadius
+        )
+    }
+
     // MARK: - Resolution
 
     /// Decodes and returns the underlying ``Image``.
     ///
     /// For `.image` sources this is an O(1) operation.
     /// For `.fileURL` sources this performs a file I/O decode.
-    /// Returns `nil` only for `.fileURL` sources when the file cannot be read.
+    /// For `.block` sources this invokes the resolver closure.
+    /// Returns `nil` when the source cannot produce an image.
     public func resolveImage() -> Image? {
         source.resolveImage()
     }
@@ -200,6 +247,8 @@ public class PDFImage: PDFDocumentObject {
             return a == b
         case (.fileURL(let u1, let s1), .fileURL(let u2, let s2)):
             return u1 == u2 && s1 == s2
+        case (.block(let id1, _, _), .block(let id2, _, _)):
+            return id1 == id2
         default:
             return false
         }
@@ -216,6 +265,8 @@ public class PDFImage: PDFDocumentObject {
             hasher.combine(url)
             hasher.combine(sizeHint?.width)
             hasher.combine(sizeHint?.height)
+        case .block(let id, _, _):
+            hasher.combine(id)
         }
         hasher.combine(caption)
         hasher.combine(size.width)

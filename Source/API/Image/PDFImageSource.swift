@@ -21,6 +21,11 @@ import Foundation
 ///   before drawing.  An optional `size` hint may be supplied; if it is `nil`,
 ///   the actual pixel dimensions are read from the file metadata via
 ///   ``CGImageSourceCreateWithURL(_:_:)`` without decoding the full image.
+/// - `block`: A closure that produces the image on demand.  A stable ``UUID``
+///   serves as the identity token for ``Equatable`` and ``Hashable`` comparisons,
+///   because closures cannot be compared by value.  Use the ``PDFImage``
+///   convenience initializer ``PDFImage/init(block:size:caption:sizeFit:quality:options:cornerRadius:)``
+///   rather than constructing this case directly.
 public enum PDFImageSource {
     /// An already-loaded ``Image`` instance.
     case image(Image)
@@ -33,6 +38,19 @@ public enum PDFImageSource {
     ///           the pixel dimensions from the file's metadata and uses those as
     ///           the layout size (no full decode required at init time).
     case fileURL(URL, size: CGSize?)
+
+    /// A closure-based source whose image is produced on demand.
+    ///
+    /// - Parameters:
+    ///   - id:       Stable identity token.  Two sources are equal iff their `id`s
+    ///               match.  Normally assigned automatically by
+    ///               ``PDFImage/init(block:size:caption:sizeFit:quality:options:cornerRadius:)``.
+    ///   - size:     Optional layout size hint in points.  When `nil`, the resolver
+    ///               is invoked once at ``PDFImage`` init time to obtain the size.
+    ///   - resolver: Closure that returns the image, or `nil` on failure.
+    ///               May be called more than once (e.g. once for size, once for
+    ///               drawing), so it should be idempotent.
+    case block(id: UUID, size: CGSize?, resolver: () -> Image?)
 }
 
 extension PDFImageSource {
@@ -62,6 +80,8 @@ extension PDFImageSource {
                 return .zero
             }
             return CGSize(width: pixelW, height: pixelH)
+        case .block(_, let hint, let resolver):
+            return hint ?? resolver()?.size ?? .zero
         }
     }
 
@@ -69,13 +89,16 @@ extension PDFImageSource {
     ///
     /// For `.image` the stored value is returned immediately.
     /// For `.fileURL` the file is loaded with ``Image(contentsOfFile:)``.
-    /// Returns `nil` if loading fails (e.g. URL unreachable).
+    /// For `.block` the resolver closure is invoked.
+    /// Returns `nil` if loading fails (e.g. URL unreachable or resolver returns `nil`).
     func resolveImage() -> Image? {
         switch self {
         case .image(let img):
             return img
         case .fileURL(let url, _):
             return Image(contentsOfFile: url.path)
+        case .block(_, _, let resolver):
+            return resolver()
         }
     }
 }

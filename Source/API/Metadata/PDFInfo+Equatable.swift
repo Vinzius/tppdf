@@ -21,6 +21,9 @@ extension PDFInfo: Equatable {
         guard lhs.keywords == rhs.keywords else {
             return false
         }
+        guard lhs.creator == rhs.creator else {
+            return false
+        }
         guard lhs.ownerPassword == rhs.ownerPassword else {
             return false
         }
